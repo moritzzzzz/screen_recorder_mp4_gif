@@ -1,0 +1,28 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Built application bundle
+*.app
+
+# Xcode (in case anyone opens the project in Xcode)
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+*.xcuserstate
+DerivedData/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor / agent state
+.claude/
+.vscode/
+.idea/
+
+# Logs and temp files
+*.log
+*.tmp

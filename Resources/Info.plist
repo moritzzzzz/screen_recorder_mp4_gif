@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.custom.screenrecorder</string>
+    <key>CFBundleName</key>
+    <string>Screen Recorder</string>
+    <key>CFBundleDisplayName</key>
+    <string>Screen Recorder</string>
+    <key>CFBundleExecutable</key>
+    <string>ScreenRecorder</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Screen Recorder needs screen capture access to record your selected screen region.</string>
+    <key>NSSupportsAutomaticTermination</key>
+    <false/>
+    <key>LSUIElement</key>
+    <false/>
+</dict>
+</plist>
