@@ -37,7 +37,7 @@ Built with Swift, SwiftUI, AppKit, ScreenCaptureKit, AVFoundation, and ImageIO â
 ## Build & Install
 
 ```sh
-git clone <your-repo-url>
+git clone https://github.com/moritzzzzz/screen_recorder_mp4_gif.git
 cd custom_screen_recorder
 bash Scripts/build.sh
 open ScreenRecorder.app
