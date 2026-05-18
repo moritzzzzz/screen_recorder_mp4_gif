@@ -2,8 +2,9 @@
 
 A native macOS screen recording application with a built-in video editor. Select any region of your screen, record it, trim out unwanted sections on a timeline, then export as MP4, MPEG-4, or animated GIF.
 
-<img width="200" height="300" alt="image" src="https://github.com/user-attachments/assets/991c521f-fc7f-4b1c-8d77-31e96ea5f2a1" />
-<img width="500"  alt="image" src="https://github.com/user-attachments/assets/901eec50-de0d-415d-8ec5-1cdf1446a7e7" />
+<img width="200" height="300" alt="image" src="https://github.com/user-attachments/assets/54269639-1670-410d-9919-fdb0902dc9f2" />
+<img width="500"  alt="image" src="https://github.com/user-attachments/assets/d6431777-9352-434b-8e34-9ce3a374d912" />
+
 
 
 
