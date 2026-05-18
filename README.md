@@ -14,14 +14,15 @@ Built with Swift, SwiftUI, AppKit, ScreenCaptureKit, AVFoundation, and ImageIO �
 - **Region selection** — fullscreen overlay with click-and-drag to select any rectangle. Multi-display aware.
 - **High-quality recording** — captures the selected region at 30 fps using Apple's modern ScreenCaptureKit, hardware-accelerated H.264 encoding.
 - **Open existing video files** — load any MP4, MPEG, or GIF from disk into the editor for trimming and re-exporting (GIFs are auto-converted to MP4 for editing).
-- **Built-in video editor**
-  - Video preview player with play/pause/skip controls (Space bar shortcut)
-  - Timeline with thumbnail strip extracted from the recording
-  - Drag on the timeline to select a range, or use "Mark Start" / "Mark End" buttons at the playhead position
-  - "Cut Selection" to mark segments for deletion (shown in red with diagonal stripes)
-  - Undo individual cuts or undo all
-  - Live "Final duration" / "Removing X seconds" preview
-  - Applies cuts using `AVMutableComposition` to produce a clean trimmed video
+- **Multi-track video editor**
+  - Video preview player with play/pause/skip controls (Space bar shortcut). Press Play to render the current composition.
+  - **Multiple video tracks** — add any MP4/MPEG/MOV/GIF via the **+ Add Video** button. Each loaded video becomes a video lane, plus an audio lane if the source has audio.
+  - **Drag on a lane = select a cut region** on that lane; **Cmd+drag = move the track** horizontally. Cmd+drag snaps to other tracks' edges and existing cut boundaries.
+  - **Composition is layered**: when two video tracks overlap in time, the later-added one is on top; gaps cut into the top track show the lower track through. Audio tracks are mixed together.
+  - **Per-track cuts** — every lane has its own cut list. Cuts produce silent / black gaps rather than rippling out time, so cuts on different lanes stay aligned to the timeline (e.g. silence the audio of video 2 while its video keeps playing).
+  - **Cut at Cursor** (razor) — split the selected track in two at the playhead so you can move the second half independently.
+  - **Enable / disable any track** — eye / speaker toggle on each lane header excludes the track from the composition without losing its cuts or offset.
+  - Cut list grouped by track with one-click undo per cut.
 - **Add a music track to your video**
   - Three built-in tracks — **Calm**, **Adventurous**, **Electronic** — procedurally synthesized in Swift, so they're free for any use (including commercial). Generated on first use and cached locally.
   - Or load your own **MP3** as the audio source.
@@ -95,6 +96,27 @@ You don't have to record something new — any video you have on disk can be loa
    - Click **Edit Video** to open the editor (trim cuts, add audio — see below).
    - Or click **Save As ...** directly to re-encode the video to a different format (e.g. a GIF to an MP4 or vice versa) without editing.
 
+### Compose multiple videos on a timeline
+
+The editor isn't limited to the file you opened — you can layer additional videos on top, slide them around in time, and trim each one independently. The composition you see in the preview is exactly what gets exported.
+
+1. Open the editor (either after a recording or from **Open Video to Edit…**).
+2. Click **+ Add Video** at the bottom of the timeline. Pick another `.mp4`, `.mpeg`/`.mpg`, `.mov`, or `.gif`. The new file appears as one or two new lanes (video, plus audio if the source has any) added at the current end of the timeline.
+3. Position the track:
+   - **Cmd + drag** on a lane to slide that track left or right on the timeline. It snaps to other tracks' start / end positions and to existing cut boundaries (snap tolerance ≈ 8 px).
+   - The asset's video and audio sub-lanes share one offset — moving the video lane moves the audio with it.
+4. Trim each track independently:
+   - **Click** a lane to select it (header turns blue).
+   - **Drag** anywhere on the lane to mark a cut region (range is shown in blue). Drag with no Cmd modifier — Cmd is reserved for the move gesture.
+   - **Mark Start** / **Mark End** at the playhead are still available if you prefer button-based selection.
+   - Click **Cut Selection** — the range becomes a solid red gap on **just that lane**. The other lanes (e.g. the same asset's video) keep playing through.
+   - Click **Cut at Cursor** to split the selected track at the playhead into two independent clips you can offset separately. Useful for rearranging a clip's beginning and end.
+5. Toggle tracks on/off:
+   - Each lane header has an **eye** (video) or **speaker** (audio) icon. Click to disable; the lane goes dim with a red diagonal hatch and is dropped from the export. Click again to re-enable — all cuts and offsets are preserved.
+6. **Layering** (z-order) — when two video tracks overlap in time, the later-added one is the visible one. If you cut a hole in the top track, the lane below shows through. To put a track on top, add it later (or use **Cut at Cursor** + move to rearrange).
+7. Press **Play** to preview the multi-track composition. The preview rebuilds itself the first time you hit play after any edit, so each play reflects the latest timeline state.
+8. Click **Apply … & Done** — the app composes one MP4 that contains all enabled tracks, their offsets, cuts, layering, and (optionally) a music track on top. Then **Save As MP4 / MPEG-4 / GIF** as usual.
+
 ### Add background music
 
 The video editor can mix a music track into the final output. The video preview itself stays silent — the audio is rendered into the file you export.
@@ -138,11 +160,13 @@ custom_screen_recorder/
 │   │   ├── CaptureEngine.swift                # ScreenCaptureKit SCStream + SCStreamOutput
 │   │   └── VideoWriter.swift                  # AVAssetWriter wrapper for H.264 MP4
 │   ├── Editor/
-│   │   ├── VideoEditorModel.swift             # Editor state (thumbnails, cuts, playhead)
+│   │   ├── VideoEditorModel.swift             # @MainActor central editor state: assets, playhead, selection, music
 │   │   ├── VideoEditorView.swift              # Main editor SwiftUI layout
-│   │   ├── TimelineView.swift                 # Canvas-based timeline (thumbnails, cuts, selection, playhead)
+│   │   ├── TimelineAsset.swift                # TimelineAsset / TimelineCut / TrackRef data model + asset loader + thumbnail extraction
+│   │   ├── TimelineView.swift                 # Multi-lane timeline view (thumbnails, audio waveform, cuts, selection, playhead, drag/Cmd+drag gestures)
+│   │   ├── TimelineComposer.swift             # Builds the AVMutableComposition + AVVideoComposition (layered) + AVAudioMix for preview and export
 │   │   ├── VideoPlayerView.swift              # AVPlayerView NSViewRepresentable
-│   │   ├── VideoTrimmer.swift                 # AVMutableComposition + AVAssetExportSession (video + optional audio)
+│   │   ├── VideoTrimmer.swift                 # Legacy single-track trimmer (kept for reference; superseded by TimelineComposer)
 │   │   ├── GIFConverter.swift                 # GIF → MP4 conversion for editing imported GIFs
 │   │   ├── AudioTrack.swift                   # AudioTrackChoice / AudioPreset enums
 │   │   └── AudioTrackGenerator.swift          # Procedural music synthesis (calm / adventurous / electronic) → AAC M4A
@@ -164,8 +188,9 @@ custom_screen_recorder/
 
 - **Recording.** `CaptureEngine` configures an `SCStream` with `SCContentFilter` for the chosen display and `sourceRect` set to the selected region (converted from NSScreen bottom-left coordinates to ScreenCaptureKit top-left). Frames are forwarded as `CMSampleBuffer`s to `VideoWriter`, which writes them through `AVAssetWriter` with H.264 encoding to a temp `.mp4`.
 - **Loading existing videos.** Non-GIF files are copied to a temp working directory and handed to the editor unchanged. GIFs go through `GIFConverter`: `CGImageSource` reads each frame and its delay metadata, then `AVAssetWriterInputPixelBufferAdaptor` re-encodes the frames as H.264 in an `.mp4` with the original per-frame timing preserved.
-- **Editing.** `VideoEditorModel` loads the temp video, extracts 30 thumbnail frames via `AVAssetImageGenerator`, and owns playback state (`AVPlayer`) plus a list of `CutRange`s. The timeline is drawn with SwiftUI `Canvas` for performance. When the user applies cuts, `VideoTrimmer` builds an `AVMutableComposition` of the kept segments and exports a new MP4 with `AVAssetExportSession`.
-- **Audio tracks.** Built-in tracks are synthesized offline by `AudioTrackGenerator`. Sine/square/sawtooth oscillators plus ADSR envelopes render ~3 minutes of stereo 32-bit-float PCM into a `[Float]`, which is fed in 4096-frame chunks through `CMBlockBuffer` + `CMSampleBuffer` into an `AVAssetWriterInput` configured for AAC, producing a small M4A file in the user Caches directory. When the user applies cuts, `VideoTrimmer` adds the audio source as a second composition track and loops it (via repeated `insertTimeRange` calls from `t=0`) until it covers the trimmed video duration. An `AVMutableAudioMix` adds two volume ramps — `0→1` over the first second (fade-in) and `1→0` over the last second (fade-out) — so the music doesn't start or stop abruptly.
+- **Multi-track editing.** `VideoEditorModel` owns a list of `TimelineAsset`s. Each asset references a source URL plus a `sourceStartOffset` (which slice of the file this asset represents — non-zero after a **Cut at Cursor** split), an `offset` (timeline placement), independent `videoCuts` / `audioCuts` lists, and `videoEnabled` / `audioEnabled` flags. The timeline is rendered as a vertical stack of lanes (video + optional audio) inside a SwiftUI `ScrollView`; each lane is positioned and sized in pixels proportional to its place on the global timeline. Cuts are stored in asset-local time, so moving an asset's offset slides its cuts along with it. Thumbnails are extracted per-asset by `AVAssetImageGenerator` using the `sourceStartOffset` as the starting time so the strip always reflects the right portion of the file.
+- **Composition (preview + export).** `TimelineComposer.buildComposition(assets:musicURL:)` constructs one `AVMutableComposition` with one composition video track per enabled asset (preserving its preferred transform) and one composition audio track per enabled asset that has audio, plus one more audio track for the optional looped music. Cuts produce **real gaps** in each composition track: the kept source segments are inserted at `offset + segment.start` in timeline time, leaving silent / transparent holes where cuts were applied — so per-track cuts don't desync sibling lanes. The accompanying `AVMutableVideoComposition` uses **one instruction** covering the entire timeline with one `AVMutableVideoCompositionLayerInstruction` per video track, added in reverse order so later-added assets sit on top of the layer stack. Each layer carries an explicit `setTransform(...)` from its composition track (required for AVPlayer to render multi-track correctly; without it the preview falls back to identity and goes blank). The `AVMutableAudioMix` puts a 1 s fade-in and 1 s fade-out volume ramp on every audio track (including the music). The same composition object is used both for the editor preview (handed to `AVPlayer` via `replaceCurrentItem(with:)` whenever edits invalidate the cache) and for export (handed to `AVAssetExportSession`).
+- **Audio tracks.** Built-in music is synthesized offline by `AudioTrackGenerator`. Sine/square/sawtooth oscillators plus ADSR envelopes render ~3 minutes of stereo 32-bit-float PCM into a `[Float]`, which is fed in 4096-frame chunks through `CMBlockBuffer` + `CMSampleBuffer` into an `AVAssetWriterInput` configured for AAC, producing a small M4A file in the user Caches directory. The composer loops the music to fit the timeline via repeated `insertTimeRange` calls from `t=0` until it covers the full duration.
 - **Export.** MP4/MPEG-4 are direct file copies (the editor's intermediate output is already H.264 MP4 with the chosen audio mixed in). GIF uses `AVAssetImageGenerator` to extract frames at 10 fps, then `CGImageDestination` (ImageIO) writes them with per-frame delay and infinite-loop properties. GIFs cannot carry audio, so any audio track is dropped during GIF export.
 
 

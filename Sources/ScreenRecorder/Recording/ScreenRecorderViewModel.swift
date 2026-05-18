@@ -27,7 +27,7 @@ class ScreenRecorderViewModel: ObservableObject {
     private var tempVideoURL: URL?
 
     private static let normalSize = NSSize(width: 420, height: 572)
-    private static let editorSize = NSSize(width: 750, height: 902)
+    private static let editorSize = NSSize(width: 820, height: 920)
 
     var formattedDuration: String {
         let minutes = Int(recordingDuration) / 60
@@ -157,7 +157,6 @@ class ScreenRecorderViewModel: ObservableObject {
             do {
                 let editor = try await VideoEditorModel.create(videoURL: url)
                 self.editorModel = editor
-                await editor.generateThumbnails()
             } catch {
                 state = .error("Failed to open editor: \(error.localizedDescription)")
                 resizeWindow(to: Self.normalSize)

@@ -8,49 +8,43 @@ struct VideoEditorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             headerBar
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
 
             Divider()
 
-            VStack(spacing: 16) {
-                // Video preview
-                VideoPlayerView(player: model.player)
-                    .frame(minHeight: 200, maxHeight: 300)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                    )
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(spacing: 14) {
+                    // Video preview
+                    VideoPlayerView(player: model.player)
+                        .frame(minHeight: 200, maxHeight: 280)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        )
 
-                // Playback controls
-                playbackControls
+                    playbackControls
 
-                // Timeline
-                TimelineView(model: model)
+                    // Multi-track timeline
+                    TimelineView(model: model)
 
-                // Time labels
-                timeLabels
+                    selectionControls
 
-                // Selection controls
-                selectionControls
+                    cutList
 
-                // Cut list
-                cutList
-
-                // Audio track controls
-                audioControls
-
-                Spacer(minLength: 0)
-
-                // Bottom action bar
-                bottomBar
+                    audioControls
+                }
+                .padding(20)
             }
-            .padding(20)
+
+            Divider()
+            bottomBar
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
         }
-        .frame(minWidth: 650, minHeight: 550)
+        .frame(minWidth: 720, minHeight: 600)
         .disabled(model.isProcessing)
         .overlay {
             if model.isProcessing {
@@ -66,22 +60,21 @@ struct VideoEditorView: View {
             Text("Video Editor")
                 .font(.title2)
                 .fontWeight(.semibold)
+            Text("(\(model.assets.count) \(model.assets.count == 1 ? "track" : "tracks"))")
+                .font(.callout)
+                .foregroundColor(.secondary)
 
             Spacer()
 
-            if !model.cutRanges.isEmpty {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("Final duration: \(model.formatTime(model.trimmedDuration))")
-                        .font(.callout)
-                        .foregroundColor(.secondary)
-                    Text("Removing: \(model.formatTime(model.removedDuration))")
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("Timeline: \(model.formatTime(model.totalDuration))")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                if model.removedDuration > 0 {
+                    Text("Removed: \(model.formatTime(model.removedDuration))")
                         .font(.caption)
                         .foregroundColor(.red)
                 }
-            } else {
-                Text("Duration: \(model.formatTime(model.duration))")
-                    .font(.callout)
-                    .foregroundColor(.secondary)
             }
         }
     }
@@ -102,7 +95,7 @@ struct VideoEditorView: View {
             .buttonStyle(.plain)
             .keyboardShortcut(.space, modifiers: [])
 
-            Button(action: { model.seek(to: model.duration) }) {
+            Button(action: { model.seek(to: model.totalDuration) }) {
                 Image(systemName: "forward.end.fill")
             }
             .buttonStyle(.plain)
@@ -114,47 +107,52 @@ struct VideoEditorView: View {
                 .foregroundColor(.primary)
             Text("/")
                 .foregroundColor(.secondary)
-            Text(model.formatTime(model.duration))
+            Text(model.formatTime(model.totalDuration))
                 .font(.system(size: 14, design: .monospaced))
                 .foregroundColor(.secondary)
         }
     }
 
-    // MARK: - Time labels
-
-    private var timeLabels: some View {
-        HStack {
-            Text(model.formatTime(0))
-                .font(.caption2)
-                .foregroundColor(.secondary)
-            Spacer()
-            Text(model.formatTime(model.duration))
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-        .padding(.top, -12)
-    }
-
     // MARK: - Selection controls
 
     private var selectionControls: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
+            // Selected track indicator
+            HStack(spacing: 6) {
+                Image(systemName: "scissors")
+                    .foregroundColor(.secondary)
+                if let ref = model.selectedTrack,
+                   let asset = model.assets.first(where: { $0.id == ref.assetID }) {
+                    Text("Cutting on:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("\(asset.name) (\(ref.kind == .video ? "video" : "audio"))")
+                        .font(.caption)
+                        .foregroundColor(.accentColor)
+                } else {
+                    Text("Click a track in the timeline to enable cuts")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .italic()
+                }
+                Spacer()
+            }
+
             HStack(spacing: 12) {
-                // Mark start
                 Button(action: { model.markStart() }) {
                     Label("Mark Start", systemImage: "arrow.right.to.line")
                         .frame(maxWidth: .infinity)
                 }
                 .controlSize(.regular)
+                .disabled(model.selectedTrack == nil)
 
-                // Mark end
                 Button(action: { model.markEnd() }) {
                     Label("Mark End", systemImage: "arrow.left.to.line")
                         .frame(maxWidth: .infinity)
                 }
                 .controlSize(.regular)
+                .disabled(model.selectedTrack == nil)
 
-                // Delete selection
                 Button(action: { model.deleteSelection() }) {
                     Label("Cut Selection", systemImage: "scissors")
                         .frame(maxWidth: .infinity)
@@ -165,7 +163,18 @@ struct VideoEditorView: View {
                 .disabled(!model.hasValidSelection)
             }
 
-            // Selection info
+            HStack(spacing: 12) {
+                Button(action: { model.splitSelectedTrackAtPlayhead() }) {
+                    Label("Cut at Cursor", systemImage: "scissors.badge.ellipsis")
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.regular)
+                .disabled(!model.canSplitAtPlayhead)
+                .help("Split the selected track into two pieces at the current playhead position")
+                Spacer().frame(maxWidth: .infinity)
+                Spacer().frame(maxWidth: .infinity)
+            }
+
             if let start = model.selectionStart, let end = model.selectionEnd, end > start {
                 HStack {
                     Text("Selected: \(model.formatTime(start)) → \(model.formatTime(end))")
@@ -188,10 +197,10 @@ struct VideoEditorView: View {
 
     @ViewBuilder
     private var cutList: some View {
-        if !model.cutRanges.isEmpty {
+        if model.totalCutCount > 0 {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Removed Segments")
+                    Text("Removed Segments (\(model.totalCutCount))")
                         .font(.headline)
                         .foregroundColor(.secondary)
                     Spacer()
@@ -201,46 +210,59 @@ struct VideoEditorView: View {
                         .foregroundColor(.secondary)
                 }
 
-                ForEach(model.cutRanges) { cut in
-                    HStack {
-                        Image(systemName: "scissors")
-                            .foregroundColor(.red)
-                            .font(.caption)
-
-                        Text("\(model.formatTime(cut.startTime)) → \(model.formatTime(cut.endTime))")
-                            .font(.system(.callout, design: .monospaced))
-
-                        Text("(\(cut.durationText))")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        Spacer()
-
-                        Button(action: { model.removeCut(cut) }) {
-                            Image(systemName: "arrow.uturn.backward")
-                                .font(.caption)
+                ForEach(model.assets) { asset in
+                    if !asset.videoCuts.isEmpty || !asset.audioCuts.isEmpty {
+                        ForEach(asset.videoCuts) { cut in
+                            cutRow(asset: asset, kind: .video, cut: cut)
                         }
-                        .buttonStyle(.plain)
-                        .foregroundColor(.secondary)
-                        .help("Restore this segment")
+                        ForEach(asset.audioCuts) { cut in
+                            cutRow(asset: asset, kind: .audio, cut: cut)
+                        }
                     }
-                    .padding(.vertical, 4)
-                    .padding(.horizontal, 10)
-                    .background(Color.red.opacity(0.1))
-                    .cornerRadius(6)
                 }
             }
         }
     }
 
-    // MARK: - Audio controls
+    private func cutRow(asset: TimelineAsset, kind: TrackKind, cut: TimelineCut) -> some View {
+        HStack {
+            Image(systemName: kind == .video ? "film" : "waveform")
+                .foregroundColor(.red)
+                .font(.caption)
+            Text("\(asset.name) (\(kind.rawValue))")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: 200, alignment: .leading)
+            Text("\(model.formatTime(cut.startTime)) → \(model.formatTime(cut.endTime))")
+                .font(.system(.caption, design: .monospaced))
+            Text("(\(cut.durationText))")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Spacer()
+            Button(action: { model.removeCut(assetID: asset.id, kind: kind, cutID: cut.id) }) {
+                Image(systemName: "arrow.uturn.backward")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(.secondary)
+            .help("Restore this segment")
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 10)
+        .background(Color.red.opacity(0.1))
+        .cornerRadius(6)
+    }
+
+    // MARK: - Audio controls (music)
 
     private var audioControls: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "music.note")
                     .foregroundColor(.secondary)
-                Text("Audio Track")
+                Text("Background Music")
                     .font(.headline)
                     .foregroundColor(.secondary)
                 if model.isPreparingAudio {
@@ -254,7 +276,6 @@ struct VideoEditorView: View {
                 Spacer()
             }
 
-            // Preset picker
             HStack(spacing: 8) {
                 presetButton(title: "None", isSelected: model.audioChoice == .none) {
                     model.setAudioChoice(.none)
@@ -269,7 +290,6 @@ struct VideoEditorView: View {
                 }
             }
 
-            // Custom + preview row
             HStack(spacing: 8) {
                 Button(action: { model.chooseCustomMP3() }) {
                     Label(customButtonLabel, systemImage: "folder")
@@ -285,7 +305,7 @@ struct VideoEditorView: View {
                     )
                 }
                 .buttonStyle(.bordered)
-                .disabled(!model.hasAudioSelected || model.isPreparingAudio)
+                .disabled(!model.hasMusicSelected || model.isPreparingAudio)
             }
 
             if let err = model.audioError {
@@ -323,21 +343,17 @@ struct VideoEditorView: View {
 
     private var bottomBar: some View {
         HStack {
-            Button("Cancel") {
-                onCancel()
-            }
-            .controlSize(.large)
-            .keyboardShortcut(.escape, modifiers: [])
-
+            Button("Cancel") { onCancel() }
+                .controlSize(.large)
+                .keyboardShortcut(.escape, modifiers: [])
             Spacer()
-
             Button(action: {
                 Task {
                     do {
                         let url = try await model.exportTrimmedVideo()
                         try await onApply(url)
                     } catch {
-                        // Error handled by caller
+                        // surfaced via parent state
                     }
                 }
             }) {
@@ -345,22 +361,23 @@ struct VideoEditorView: View {
             }
             .controlSize(.large)
             .buttonStyle(.borderedProminent)
-            .disabled(model.isPreparingAudio)
+            .disabled(model.isPreparingAudio || model.isAddingAsset)
         }
     }
 
     private var applyButtonLabel: some View {
-        let hasCuts = !model.cutRanges.isEmpty
-        let hasAudio = model.hasAudioSelected
+        let cutCount = model.totalCutCount
+        let trackCount = model.assets.count
+        let hasMusic = model.hasMusicSelected
         let text: String
-        if !hasCuts && !hasAudio {
+        if trackCount <= 1 && cutCount == 0 && !hasMusic {
             text = "Done"
-        } else if hasCuts && !hasAudio {
-            text = "Apply \(model.cutRanges.count) Cut\(model.cutRanges.count == 1 ? "" : "s") & Done"
-        } else if !hasCuts && hasAudio {
-            text = "Add Audio & Done"
         } else {
-            text = "Apply Cuts + Audio & Done"
+            var parts: [String] = []
+            if trackCount > 1 { parts.append("\(trackCount) tracks") }
+            if cutCount > 0 { parts.append("\(cutCount) cut\(cutCount == 1 ? "" : "s")") }
+            if hasMusic { parts.append("music") }
+            text = "Apply " + parts.joined(separator: " + ") + " & Done"
         }
         return Label(text, systemImage: "checkmark.circle")
     }
@@ -373,7 +390,7 @@ struct VideoEditorView: View {
             VStack(spacing: 12) {
                 ProgressView()
                     .scaleEffect(1.5)
-                Text("Applying cuts...")
+                Text(model.processingMessage)
                     .font(.headline)
                     .foregroundColor(.white)
             }
