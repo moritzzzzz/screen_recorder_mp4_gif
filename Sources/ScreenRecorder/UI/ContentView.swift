@@ -140,6 +140,27 @@ struct ContentView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(.red)
                 }
+
+                // Divider with "or"
+                HStack(spacing: 8) {
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.3))
+                        .frame(height: 1)
+                    Text("or")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.3))
+                        .frame(height: 1)
+                }
+                .padding(.vertical, 2)
+
+                Button(action: { viewModel.openVideoFile() }) {
+                    Label("Open Video to Edit\u{2026}", systemImage: "folder")
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
+                .help("Load an MP4, MPEG, or GIF file to edit and re-export")
             }
         }
     }
@@ -214,10 +235,17 @@ struct ContentView: View {
                 .scaleEffect(1.5)
             Text("Processing...")
                 .font(.headline)
-            Text("Finalizing your recording")
+            Text(processingMessage)
                 .foregroundColor(.secondary)
             Spacer()
         }
+    }
+
+    private var processingMessage: String {
+        if case .loaded = viewModel.videoSource {
+            return "Loading video"
+        }
+        return "Finalizing your recording"
     }
 
     private var doneView: some View {
@@ -232,12 +260,25 @@ struct ContentView: View {
 
             Spacer()
 
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 48))
-                .foregroundColor(.green)
-
-            Text("Recording Complete!")
-                .font(.headline)
+            switch viewModel.videoSource {
+            case .recorded:
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 48))
+                    .foregroundColor(.green)
+                Text("Recording Complete!")
+                    .font(.headline)
+            case .loaded(let filename):
+                Image(systemName: "film.fill")
+                    .font(.system(size: 48))
+                    .foregroundColor(.accentColor)
+                Text("Video Loaded")
+                    .font(.headline)
+                Text(filename)
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
 
             Text("Duration: \(viewModel.formattedDuration)")
                 .foregroundColor(.secondary)

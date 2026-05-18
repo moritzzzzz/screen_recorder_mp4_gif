@@ -13,6 +13,7 @@ Built with Swift, SwiftUI, AppKit, ScreenCaptureKit, AVFoundation, and ImageIO �
 
 - **Region selection** — fullscreen overlay with click-and-drag to select any rectangle. Multi-display aware.
 - **High-quality recording** — captures the selected region at 30 fps using Apple's modern ScreenCaptureKit, hardware-accelerated H.264 encoding.
+- **Open existing video files** — load any MP4, MPEG, or GIF from disk into the editor for trimming and re-exporting (GIFs are auto-converted to MP4 for editing).
 - **Built-in video editor**
   - Video preview player with play/pause/skip controls (Space bar shortcut)
   - Timeline with thumbnail strip extracted from the recording
@@ -61,6 +62,8 @@ You may need to quit and relaunch the app after granting permission.
 
 ## Usage
 
+### Record a new clip
+
 1. Launch the app.
 2. Pick an **Export Format** (MP4 / MPEG-4 / GIF).
 3. Click **Select Region** and drag to choose the area to record (Escape to cancel).
@@ -71,6 +74,12 @@ You may need to quit and relaunch the app after granting permission.
    - Click **Cut Selection** to remove it
    - Repeat for multiple cuts, then click **Apply & Done**
 7. Click **Save As ...** to export to your chosen format and location.
+
+### Edit an existing file
+
+1. On the main screen, click **Open Video to Edit…** under the "or" divider.
+2. Choose an `.mp4`, `.mpeg`/`.mpg`, `.mov`, or `.gif` file. GIFs are automatically converted to MP4 in the background so the editor can play them.
+3. Click **Edit Video** to open the editor (same workflow as above), or skip straight to **Save As ...** to just re-encode to a different format.
 
 ## Project Structure
 
@@ -97,7 +106,8 @@ custom_screen_recorder/
 │   │   ├── VideoEditorView.swift              # Main editor SwiftUI layout
 │   │   ├── TimelineView.swift                 # Canvas-based timeline (thumbnails, cuts, selection, playhead)
 │   │   ├── VideoPlayerView.swift              # AVPlayerView NSViewRepresentable
-│   │   └── VideoTrimmer.swift                 # AVMutableComposition + AVAssetExportSession trimming
+│   │   ├── VideoTrimmer.swift                 # AVMutableComposition + AVAssetExportSession trimming
+│   │   └── GIFConverter.swift                 # GIF → MP4 conversion for editing imported GIFs
 │   ├── Export/
 │   │   ├── ExportManager.swift                # NSSavePanel + format dispatch
 │   │   └── GIFExporter.swift                  # AVAssetImageGenerator → CGImageDestination

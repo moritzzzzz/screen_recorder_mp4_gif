@@ -1,6 +1,13 @@
 import Foundation
 import AppKit
+import AVFoundation
 import Combine
+import UniformTypeIdentifiers
+
+enum VideoSource: Equatable {
+    case recorded
+    case loaded(originalFilename: String)
+}
 
 @MainActor
 class ScreenRecorderViewModel: ObservableObject {
@@ -10,6 +17,7 @@ class ScreenRecorderViewModel: ObservableObject {
     @Published var recordingDuration: TimeInterval = 0
     @Published var exportedFileURL: URL?
     @Published var editorModel: VideoEditorModel?
+    @Published var videoSource: VideoSource = .recorded
 
     private let regionSelector = RegionSelectionController()
     private let captureEngine = CaptureEngine()
@@ -36,6 +44,53 @@ class ScreenRecorderViewModel: ObservableObject {
     }
 
     // MARK: - Actions
+
+    func openVideoFile() {
+        let openPanel = NSOpenPanel()
+        openPanel.title = "Open Video to Edit"
+        openPanel.message = "Choose an MP4, MPEG, or GIF file"
+        openPanel.allowedContentTypes = [
+            UTType.mpeg4Movie,
+            UTType.movie,
+            UTType.quickTimeMovie,
+            UTType.mpeg,
+            UTType.gif,
+        ]
+        openPanel.allowsMultipleSelection = false
+        openPanel.canChooseDirectories = false
+        openPanel.canChooseFiles = true
+
+        guard openPanel.runModal() == .OK, let url = openPanel.url else { return }
+
+        state = .processing
+
+        Task {
+            do {
+                let videoURL: URL
+
+                if url.pathExtension.lowercased() == "gif" {
+                    videoURL = try await GIFConverter.convertGIFtoMP4(gifURL: url)
+                } else {
+                    let tempDir = FileManager.default.temporaryDirectory
+                    let filename = "imported_\(Int(Date().timeIntervalSince1970)).mp4"
+                    videoURL = tempDir.appendingPathComponent(filename)
+                    try? FileManager.default.removeItem(at: videoURL)
+                    try FileManager.default.copyItem(at: url, to: videoURL)
+                }
+
+                let asset = AVURLAsset(url: videoURL)
+                let cmDuration = try await asset.load(.duration)
+
+                self.tempVideoURL = videoURL
+                self.recordingDuration = CMTimeGetSeconds(cmDuration)
+                self.videoSource = .loaded(originalFilename: url.lastPathComponent)
+                self.exportedFileURL = nil
+                self.state = .done(videoURL)
+            } catch {
+                state = .error("Failed to open video: \(error.localizedDescription)")
+            }
+        }
+    }
 
     func selectRegion() {
         state = .selectingRegion
@@ -79,6 +134,7 @@ class ScreenRecorderViewModel: ObservableObject {
                 if let writer = videoWriter {
                     let url = try await writer.finishWriting()
                     tempVideoURL = url
+                    videoSource = .recorded
                     state = .done(url)
                 } else {
                     state = .error("No video writer available.")
@@ -161,6 +217,7 @@ class ScreenRecorderViewModel: ObservableObject {
         exportedFileURL = nil
         tempVideoURL = nil
         videoWriter = nil
+        videoSource = .recorded
     }
 
     func reset() {
