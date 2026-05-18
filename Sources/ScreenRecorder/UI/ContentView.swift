@@ -56,7 +56,7 @@ struct ContentView: View {
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(minWidth: 400, minHeight: 550)
+        .frame(minWidth: 420, minHeight: 620)
     }
 
     // MARK: - Editor view
@@ -87,13 +87,28 @@ struct ContentView: View {
     // MARK: - State Views
 
     private var idleView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             // Format picker
             VStack(alignment: .leading, spacing: 8) {
                 Text("Export Format")
                     .font(.headline)
                     .foregroundColor(.secondary)
                 ExportFormatPicker(selection: $viewModel.selectedFormat)
+            }
+
+            // Audio capture toggles
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Audio Sources")
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                Toggle(isOn: $viewModel.captureSystemAudio) {
+                    Label("System Audio", systemImage: "speaker.wave.2")
+                }
+                .help("Record any sound your Mac is playing (apps, browser, system sounds)")
+                Toggle(isOn: $viewModel.captureMicrophone) {
+                    Label("Microphone", systemImage: "mic")
+                }
+                .help("Record your voice from the default microphone for narration")
             }
 
             Spacer()

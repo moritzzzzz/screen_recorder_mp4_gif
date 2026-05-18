@@ -18,6 +18,8 @@ class ScreenRecorderViewModel: ObservableObject {
     @Published var exportedFileURL: URL?
     @Published var editorModel: VideoEditorModel?
     @Published var videoSource: VideoSource = .recorded
+    @Published var captureSystemAudio: Bool = false
+    @Published var captureMicrophone: Bool = false
 
     private let regionSelector = RegionSelectionController()
     private let captureEngine = CaptureEngine()
@@ -26,7 +28,7 @@ class ScreenRecorderViewModel: ObservableObject {
     private var durationTimer: Timer?
     private var tempVideoURL: URL?
 
-    private static let normalSize = NSSize(width: 420, height: 572)
+    private static let normalSize = NSSize(width: 440, height: 660)
     private static let editorSize = NSSize(width: 820, height: 920)
 
     var formattedDuration: String {
@@ -113,8 +115,16 @@ class ScreenRecorderViewModel: ObservableObject {
             return
         }
 
-        state = .countingDown(3)
         Task {
+            // Mic permission (only if user enabled microphone capture)
+            if captureMicrophone {
+                let granted = await PermissionManager.requestMicrophonePermission()
+                if !granted {
+                    state = .error("Microphone access denied. Disable the Microphone toggle or grant access in System Settings > Privacy & Security > Microphone.")
+                    return
+                }
+            }
+
             for i in stride(from: 3, through: 1, by: -1) {
                 state = .countingDown(i)
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
@@ -239,8 +249,18 @@ class ScreenRecorderViewModel: ObservableObject {
         self.videoWriter = writer
 
         do {
-            try writer.startWriting(width: width, height: height)
-            try await captureEngine.startCapture(region: region, writer: writer)
+            try writer.startWriting(
+                width: width,
+                height: height,
+                includeSystemAudio: captureSystemAudio,
+                includeMicrophone: captureMicrophone
+            )
+            try await captureEngine.startCapture(
+                region: region,
+                writer: writer,
+                captureSystemAudio: captureSystemAudio,
+                captureMicrophone: captureMicrophone
+            )
             state = .recording
             startDurationTimer()
         } catch {

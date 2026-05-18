@@ -13,6 +13,7 @@ Built with Swift, SwiftUI, AppKit, ScreenCaptureKit, AVFoundation, and ImageIO �
 
 - **Region selection** — fullscreen overlay with click-and-drag to select any rectangle. Multi-display aware.
 - **High-quality recording** — captures the selected region at 30 fps using Apple's modern ScreenCaptureKit, hardware-accelerated H.264 encoding.
+- **Optional live audio capture** — independent toggles on the main screen for **System Audio** (anything your Mac is playing, via ScreenCaptureKit) and **Microphone** (default audio input, via `AVCaptureSession`). Either, both, or neither can be enabled before you start recording. Each enabled source becomes its own audio track in the output MP4.
 - **Open existing video files** — load any MP4, MPEG, or GIF from disk into the editor for trimming and re-exporting (GIFs are auto-converted to MP4 for editing).
 - **Multi-track video editor**
   - Video preview player with play/pause/skip controls (Space bar shortcut). Press Play to render the current composition.
@@ -72,14 +73,40 @@ You may need to quit and relaunch the app after granting permission.
 
 1. Launch the app.
 2. Pick an **Export Format** (MP4 / MPEG-4 / GIF).
-3. Click **Select Region** and drag to choose the area to record (Escape to cancel).
-4. Click **Start Recording** — there is a 3-second countdown.
-5. Click **Stop Recording** when finished.
-6. Optionally click **Edit Video** to trim out sections:
+3. (Optional) Under **Audio Sources**, toggle **System Audio** to record what your Mac is playing and/or **Microphone** to record your voice. The first time you enable Microphone the OS will prompt for permission.
+4. Click **Select Region** and drag to choose the area to record (Escape to cancel).
+5. Click **Start Recording** — there is a 3-second countdown.
+6. Click **Stop Recording** when finished.
+7. Optionally click **Edit Video** to trim out sections:
    - Drag on the timeline to select a range
    - Click **Cut Selection** to remove it
    - Repeat for multiple cuts, then click **Apply & Done**
-7. Click **Save As ...** to export to your chosen format and location.
+8. Click **Save As ...** to export to your chosen format and location.
+
+### Record system audio and microphone
+
+The recording can include audio in addition to video. Both sources are independent — turn either, both, or neither on **before** you press **Start Recording**.
+
+1. On the main screen, find the **Audio Sources** section under the Export Format picker.
+2. Toggle the sources you want:
+   - **System Audio** — captures whatever your Mac is playing: music apps, browser playback, app notifications, system sounds. No separate permission is required (it rides on the Screen Recording permission you already granted).
+   - **Microphone** — captures the system default audio input (built-in mic, USB mic, headset, etc.). On first use macOS prompts for **Microphone** permission; grant it under *System Settings → Privacy & Security → Microphone* and restart the recording if needed.
+3. Pick your region, click **Start Recording**, do your thing, click **Stop Recording**.
+4. The temp MP4 now contains:
+   - the video track
+   - an audio track for System Audio (if enabled)
+   - an audio track for Microphone (if enabled)
+5. **Save As MP4 / MPEG-4** — the audio travels through to the exported file unchanged. **GIF** still strips audio (GIFs can't carry sound).
+
+**Typical use cases**
+- Tutorial with voiceover: turn **Microphone** on.
+- Capturing a video call or game audio without your commentary: turn **System Audio** on.
+- Demo with both your voice and an app's sound: turn **both** on. The two audio tracks play simultaneously in QuickTime/VLC. (Caveat: the editor's per-asset audio lane only edits the first track for now — see Known Limitations.)
+- Silent demo: leave both off (the original behavior).
+
+**Permission troubleshooting**
+- If you toggle Microphone on and recording fails with a permission error, open *System Settings → Privacy & Security → Microphone* and make sure **Screen Recorder** is enabled. You may need to quit and relaunch the app after granting.
+- If System Audio is silent in the recording, check that your Screen Recording permission is still granted (sometimes a fresh build of the `.app` triggers a re-prompt because the ad-hoc code signature changes).
 
 ### Edit an existing file
 
@@ -187,6 +214,7 @@ custom_screen_recorder/
 ## How It Works
 
 - **Recording.** `CaptureEngine` configures an `SCStream` with `SCContentFilter` for the chosen display and `sourceRect` set to the selected region (converted from NSScreen bottom-left coordinates to ScreenCaptureKit top-left). Frames are forwarded as `CMSampleBuffer`s to `VideoWriter`, which writes them through `AVAssetWriter` with H.264 encoding to a temp `.mp4`.
+- **Audio capture during recording.** When the **System Audio** toggle is on, `SCStreamConfiguration.capturesAudio = true` makes ScreenCaptureKit deliver `.audio` sample buffers through the same stream, which `CaptureEngine` forwards to a dedicated audio `AVAssetWriterInput`. When the **Microphone** toggle is on, a separate `AVCaptureSession` with `AVCaptureAudioDataOutput` feeds mic sample buffers to a second audio writer input. The writer uses a serial dispatch queue for all appends (video + both audio sources) and lazily calls `startSession(atSourceTime:)` on the first sample from any source so the three streams share one timeline anchor.
 - **Loading existing videos.** Non-GIF files are copied to a temp working directory and handed to the editor unchanged. GIFs go through `GIFConverter`: `CGImageSource` reads each frame and its delay metadata, then `AVAssetWriterInputPixelBufferAdaptor` re-encodes the frames as H.264 in an `.mp4` with the original per-frame timing preserved.
 - **Multi-track editing.** `VideoEditorModel` owns a list of `TimelineAsset`s. Each asset references a source URL plus a `sourceStartOffset` (which slice of the file this asset represents — non-zero after a **Cut at Cursor** split), an `offset` (timeline placement), independent `videoCuts` / `audioCuts` lists, and `videoEnabled` / `audioEnabled` flags. The timeline is rendered as a vertical stack of lanes (video + optional audio) inside a SwiftUI `ScrollView`; each lane is positioned and sized in pixels proportional to its place on the global timeline. Cuts are stored in asset-local time, so moving an asset's offset slides its cuts along with it. Thumbnails are extracted per-asset by `AVAssetImageGenerator` using the `sourceStartOffset` as the starting time so the strip always reflects the right portion of the file.
 - **Composition (preview + export).** `TimelineComposer.buildComposition(assets:musicURL:)` constructs one `AVMutableComposition` with one composition video track per enabled asset (preserving its preferred transform) and one composition audio track per enabled asset that has audio, plus one more audio track for the optional looped music. Cuts produce **real gaps** in each composition track: the kept source segments are inserted at `offset + segment.start` in timeline time, leaving silent / transparent holes where cuts were applied — so per-track cuts don't desync sibling lanes. The accompanying `AVMutableVideoComposition` uses **one instruction** covering the entire timeline with one `AVMutableVideoCompositionLayerInstruction` per video track, added in reverse order so later-added assets sit on top of the layer stack. Each layer carries an explicit `setTransform(...)` from its composition track (required for AVPlayer to render multi-track correctly; without it the preview falls back to identity and goes blank). The `AVMutableAudioMix` puts a 1 s fade-in and 1 s fade-out volume ramp on every audio track (including the music). The same composition object is used both for the editor preview (handed to `AVPlayer` via `replaceCurrentItem(with:)` whenever edits invalidate the cache) and for export (handed to `AVAssetExportSession`).
@@ -196,7 +224,7 @@ custom_screen_recorder/
 
 ## Known Limitations
 
-- **No live audio capture** — the recording itself is video-only; the app does not capture system audio or the microphone during a screen recording. (You can, however, mix in a music track in the editor afterwards — see the "Add background music" section.) Adding live capture would require a second `SCStream` output type and an audio `AVAssetWriterInput`.
+- **Two audio sources = two audio tracks in the output.** When both System Audio and Microphone are enabled, the resulting MP4 contains two separate audio tracks. QuickTime and most players mix them together on playback, but the editor's per-asset audio lane only shows the first track — to edit them as separate lanes today you'd need to load the recording back through **Open Video to Edit…** twice (or pick just one source up front). Pre-mixing them into a single track in real time is on the roadmap.
 - **Built-in music is synthesizer-style** — Calm/Adventurous/Electronic are procedurally generated with basic oscillators, so they have a chiptune/synth character rather than real-instrument timbres. Tracks are 3 minutes long and loop; the loop is unobtrusive for typical screen recordings but may become noticeable for very long videos. Use **Use My MP3…** for orchestral or recorded music.
 - **MPEG-4 ≠ MPEG-1/2** — the "MPEG-4" export uses H.264 in an MP4 container with a `.mpeg` extension. macOS does not natively encode legacy MPEG-1/2.
 - **GIF defaults are fixed** — 10 fps, 640 px max width. Tune the constants in `GIFExporter.swift` if needed.
