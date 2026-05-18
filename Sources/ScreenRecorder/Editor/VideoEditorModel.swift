@@ -28,6 +28,14 @@ class VideoEditorModel: ObservableObject {
     @Published var isPlaying: Bool = false
     @Published var isProcessing: Bool = false
 
+    @Published var audioChoice: AudioTrackChoice = .none
+    @Published var isPreparingAudio: Bool = false
+    @Published var isPreviewingAudio: Bool = false
+    @Published var audioError: String?
+
+    private var preparedAudioURL: URL?
+    private var previewPlayer: AVAudioPlayer?
+
     private var timeObserver: Any?
     private var endObserver: NSObjectProtocol?
 
@@ -68,6 +76,7 @@ class VideoEditorModel: ObservableObject {
 
     func cleanup() {
         player.pause()
+        stopPreview()
         if let obs = timeObserver {
             player.removeTimeObserver(obs)
             timeObserver = nil
@@ -76,6 +85,71 @@ class VideoEditorModel: ObservableObject {
             NotificationCenter.default.removeObserver(obs)
             endObserver = nil
         }
+    }
+
+    // MARK: - Audio
+
+    func setAudioChoice(_ choice: AudioTrackChoice) {
+        stopPreview()
+        audioError = nil
+        audioChoice = choice
+
+        switch choice {
+        case .none:
+            preparedAudioURL = nil
+        case .preset(let preset):
+            isPreparingAudio = true
+            Task {
+                do {
+                    let url = try await AudioTrackGenerator.ensureTrack(preset)
+                    self.preparedAudioURL = url
+                } catch {
+                    self.preparedAudioURL = nil
+                    self.audioError = "Could not prepare track: \(error.localizedDescription)"
+                }
+                self.isPreparingAudio = false
+            }
+        case .custom(let url):
+            preparedAudioURL = url
+        }
+    }
+
+    func chooseCustomMP3() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose an Audio File"
+        panel.allowedContentTypes = [.mp3, .audio]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        setAudioChoice(.custom(url))
+    }
+
+    func togglePreview() {
+        if isPreviewingAudio {
+            stopPreview()
+            return
+        }
+        guard let url = preparedAudioURL else { return }
+        do {
+            let player = try AVAudioPlayer(contentsOf: url)
+            player.numberOfLoops = -1
+            player.prepareToPlay()
+            player.play()
+            previewPlayer = player
+            isPreviewingAudio = true
+        } catch {
+            audioError = "Could not play preview: \(error.localizedDescription)"
+        }
+    }
+
+    func stopPreview() {
+        previewPlayer?.stop()
+        previewPlayer = nil
+        isPreviewingAudio = false
+    }
+
+    var hasAudioSelected: Bool {
+        preparedAudioURL != nil
     }
 
     // MARK: - Thumbnails
@@ -234,11 +308,22 @@ class VideoEditorModel: ObservableObject {
         isProcessing = true
         defer { isProcessing = false }
 
-        if cutRanges.isEmpty {
+        let hasCuts = !cutRanges.isEmpty
+        let hasAudio = preparedAudioURL != nil
+
+        if !hasCuts && !hasAudio {
             return videoURL
         }
 
-        return try await VideoTrimmer.trim(videoURL: videoURL, keptSegments: keptSegments)
+        let segments: [(start: Double, end: Double)] = hasCuts
+            ? keptSegments
+            : [(start: 0, end: duration)]
+
+        return try await VideoTrimmer.trim(
+            videoURL: videoURL,
+            keptSegments: segments,
+            audioURL: preparedAudioURL
+        )
     }
 
     // MARK: - Helpers

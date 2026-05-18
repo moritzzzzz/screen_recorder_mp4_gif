@@ -22,6 +22,11 @@ Built with Swift, SwiftUI, AppKit, ScreenCaptureKit, AVFoundation, and ImageIO �
   - Undo individual cuts or undo all
   - Live "Final duration" / "Removing X seconds" preview
   - Applies cuts using `AVMutableComposition` to produce a clean trimmed video
+- **Add a music track to your video**
+  - Three built-in tracks — **Calm**, **Adventurous**, **Electronic** — procedurally synthesized in Swift, so they're free for any use (including commercial). Generated on first use and cached locally.
+  - Or load your own **MP3** as the audio source.
+  - Preview button to hear the track before committing.
+  - Audio is auto-looped to match the (possibly trimmed) video length.
 - **Three export formats**
   - **MP4** — H.264, modern container, best compatibility
   - **MPEG-4** — same codec, `.mpeg` extension
@@ -106,8 +111,10 @@ custom_screen_recorder/
 │   │   ├── VideoEditorView.swift              # Main editor SwiftUI layout
 │   │   ├── TimelineView.swift                 # Canvas-based timeline (thumbnails, cuts, selection, playhead)
 │   │   ├── VideoPlayerView.swift              # AVPlayerView NSViewRepresentable
-│   │   ├── VideoTrimmer.swift                 # AVMutableComposition + AVAssetExportSession trimming
-│   │   └── GIFConverter.swift                 # GIF → MP4 conversion for editing imported GIFs
+│   │   ├── VideoTrimmer.swift                 # AVMutableComposition + AVAssetExportSession (video + optional audio)
+│   │   ├── GIFConverter.swift                 # GIF → MP4 conversion for editing imported GIFs
+│   │   ├── AudioTrack.swift                   # AudioTrackChoice / AudioPreset enums
+│   │   └── AudioTrackGenerator.swift          # Procedural music synthesis (calm / adventurous / electronic) → AAC M4A
 │   ├── Export/
 │   │   ├── ExportManager.swift                # NSSavePanel + format dispatch
 │   │   └── GIFExporter.swift                  # AVAssetImageGenerator → CGImageDestination

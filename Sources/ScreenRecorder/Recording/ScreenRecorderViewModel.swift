@@ -26,8 +26,8 @@ class ScreenRecorderViewModel: ObservableObject {
     private var durationTimer: Timer?
     private var tempVideoURL: URL?
 
-    private static let normalSize = NSSize(width: 420, height: 520)
-    private static let editorSize = NSSize(width: 750, height: 680)
+    private static let normalSize = NSSize(width: 420, height: 572)
+    private static let editorSize = NSSize(width: 750, height: 902)
 
     var formattedDuration: String {
         let minutes = Int(recordingDuration) / 60

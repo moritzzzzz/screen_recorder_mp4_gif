@@ -56,7 +56,7 @@ struct ContentView: View {
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(minWidth: 400, minHeight: 500)
+        .frame(minWidth: 400, minHeight: 550)
     }
 
     // MARK: - Editor view

@@ -40,6 +40,9 @@ struct VideoEditorView: View {
                 // Cut list
                 cutList
 
+                // Audio track controls
+                audioControls
+
                 Spacer(minLength: 0)
 
                 // Bottom action bar
@@ -230,6 +233,92 @@ struct VideoEditorView: View {
         }
     }
 
+    // MARK: - Audio controls
+
+    private var audioControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "music.note")
+                    .foregroundColor(.secondary)
+                Text("Audio Track")
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                if model.isPreparingAudio {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                        .frame(width: 14, height: 14)
+                    Text("preparing\u{2026}")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+            }
+
+            // Preset picker
+            HStack(spacing: 8) {
+                presetButton(title: "None", isSelected: model.audioChoice == .none) {
+                    model.setAudioChoice(.none)
+                }
+                ForEach(AudioPreset.allCases) { preset in
+                    presetButton(
+                        title: preset.displayName,
+                        isSelected: model.audioChoice == .preset(preset)
+                    ) {
+                        model.setAudioChoice(.preset(preset))
+                    }
+                }
+            }
+
+            // Custom + preview row
+            HStack(spacing: 8) {
+                Button(action: { model.chooseCustomMP3() }) {
+                    Label(customButtonLabel, systemImage: "folder")
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Button(action: { model.togglePreview() }) {
+                    Label(
+                        model.isPreviewingAudio ? "Stop" : "Preview",
+                        systemImage: model.isPreviewingAudio ? "stop.fill" : "play.fill"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .disabled(!model.hasAudioSelected || model.isPreparingAudio)
+            }
+
+            if let err = model.audioError {
+                Text(err)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+        }
+        .padding(12)
+        .background(Color.gray.opacity(0.08))
+        .cornerRadius(8)
+    }
+
+    private var customButtonLabel: String {
+        if case .custom(let url) = model.audioChoice {
+            return url.lastPathComponent
+        }
+        return "Use My MP3\u{2026}"
+    }
+
+    private func presetButton(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.callout)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .background(isSelected ? Color.accentColor : Color.gray.opacity(0.2))
+                .foregroundColor(isSelected ? .white : .primary)
+                .cornerRadius(6)
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: - Bottom bar
 
     private var bottomBar: some View {
@@ -252,16 +341,28 @@ struct VideoEditorView: View {
                     }
                 }
             }) {
-                if model.cutRanges.isEmpty {
-                    Label("Done", systemImage: "checkmark")
-                } else {
-                    Label("Apply \(model.cutRanges.count) Cut\(model.cutRanges.count == 1 ? "" : "s") & Done",
-                          systemImage: "checkmark.circle")
-                }
+                applyButtonLabel
             }
             .controlSize(.large)
             .buttonStyle(.borderedProminent)
+            .disabled(model.isPreparingAudio)
         }
+    }
+
+    private var applyButtonLabel: some View {
+        let hasCuts = !model.cutRanges.isEmpty
+        let hasAudio = model.hasAudioSelected
+        let text: String
+        if !hasCuts && !hasAudio {
+            text = "Done"
+        } else if hasCuts && !hasAudio {
+            text = "Apply \(model.cutRanges.count) Cut\(model.cutRanges.count == 1 ? "" : "s") & Done"
+        } else if !hasCuts && hasAudio {
+            text = "Add Audio & Done"
+        } else {
+            text = "Apply Cuts + Audio & Done"
+        }
+        return Label(text, systemImage: "checkmark.circle")
     }
 
     // MARK: - Processing overlay
