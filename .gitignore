@@ -3,8 +3,13 @@
 .swiftpm/
 Package.resolved
 
-# Built application bundle
+# Built application bundle and release artifacts
 *.app
+*.dmg
+*.zip
+
+# Local release configuration (contains signing identity & team ID)
+Scripts/release.config.sh
 
 # Xcode (in case anyone opens the project in Xcode)
 *.xcodeproj/

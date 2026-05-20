@@ -1,0 +1,13 @@
+# Copy this file to release.config.sh and fill in your values.
+# release.config.sh is gitignored — your team ID and identity stay local.
+#
+# Find your signing identity:
+#   security find-identity -v -p codesigning
+# Look for the line that says "Developer ID Application: <Your Name> (TEAMID)"
+
+# The full identity string, copied verbatim from the security command above.
+SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID12345)"
+
+# The keychain profile name you used with `xcrun notarytool store-credentials`.
+# Default in our setup guide is AC_PASSWORD.
+NOTARY_PROFILE="AC_PASSWORD"

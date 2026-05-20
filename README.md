@@ -231,6 +231,56 @@ custom_screen_recorder/
 - **GIF defaults are fixed** — 10 fps, 640 px max width. Tune the constants in `GIFExporter.swift` if needed.
 - **Permission persistence** — the ad-hoc code signature ties the screen-recording permission to the exact bundle. Rebuilding produces a new signature, so macOS may re-prompt. For wider distribution, sign with a Developer ID certificate and notarize.
 
+## Releasing a notarized DMG
+
+For shipping the app to users without an Apple Developer setup of their own, this repo includes a one-command release pipeline that signs with **Developer ID Application**, notarizes via Apple's notary service, and produces a signed + stapled `.dmg`.
+
+### One-time setup (per maintainer)
+
+1. **Developer ID Application certificate** in your login Keychain. Easiest path is **Xcode → Settings → Accounts → your team → Manage Certificates → + → Developer ID Application**. Verify with:
+   ```sh
+   security find-identity -v -p codesigning
+   ```
+2. **App-specific password for notarytool**. Generate one at <https://appleid.apple.com> under *Sign-In and Security → App-Specific Passwords*. Then store it in Keychain:
+   ```sh
+   xcrun notarytool store-credentials "AC_PASSWORD" \
+       --apple-id "you@example.com" \
+       --team-id "TEAMID12345" \
+       --password "xxxx-xxxx-xxxx-xxxx"
+   ```
+3. **Create a local config file** (gitignored):
+   ```sh
+   cp Scripts/release.config.sh.example Scripts/release.config.sh
+   # Edit it: paste your full SIGN_IDENTITY string and the NOTARY_PROFILE name from step 2
+   ```
+
+### Cutting a release
+
+```sh
+# 1. Bump the version in Resources/Info.plist
+#    CFBundleShortVersionString (user-visible, e.g. 1.0.1)
+#    CFBundleVersion             (internal build number, bump every upload)
+
+# 2. Run the release script — takes 3–10 minutes
+bash Scripts/release.sh
+```
+
+The script:
+1. Builds `ScreenRecorder.app` in release mode.
+2. Re-signs both the executable and the bundle with your Developer ID Application certificate, enables the Hardened Runtime, and embeds `Resources/ScreenRecorder.entitlements` (which grants the microphone capability required by the Hardened Runtime).
+3. Zips the `.app`, submits it to Apple's notary service, waits for the result, and staples the notarization ticket onto the bundle.
+4. Builds a drag-to-Applications DMG with `hdiutil`.
+5. Signs, notarizes, and staples the DMG itself so Gatekeeper accepts the disk image without warnings.
+6. Prints the final path: `ScreenRecorder-<version>.dmg` in the project root.
+
+Upload that DMG to GitHub Releases (or wherever you host downloads) and users get a frictionless install — no right-click-Open dance, no `xattr -dr com.apple.quarantine` workaround.
+
+### What's not handled by the release script
+
+- **Auto-update.** Users will need to download new versions manually from your release page. If you want true auto-update, integrate the [Sparkle](https://sparkle-project.org/) framework.
+- **App icon.** The release script doesn't bake in an icon. Add one by dropping an `AppIcon.icns` into `Resources/` and setting `CFBundleIconFile = AppIcon` in `Info.plist`.
+- **App Store submission.** For the Mac App Store, see [`app_store_deployment.md`](app_store_deployment.md) — that path requires Xcode and sandboxing.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
