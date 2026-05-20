@@ -169,6 +169,59 @@ The video editor can mix a music track into the final output. The video preview 
 
 The built-in tracks are mathematically generated from oscillators and envelopes — they are not derived from any copyrighted recording, so the resulting videos are safe for any use including commercial.
 
+### Add or replace the audio on an existing video
+
+A common case: you have a recording (silent screen-cap, an old MP4 with bad audio, a downloaded clip with the wrong soundtrack) and you want to drop a new audio track onto it. The editor handles both scenarios.
+
+#### Adding audio to a silent video
+
+1. On the main screen, click **Open Video to Edit…** and pick the video file. Silent recordings (e.g. the default screen recording with no audio toggles enabled) load with **only a video lane** — no audio lane appears.
+2. Click **Edit Video** to enter the editor.
+3. In the **Background Music** panel near the bottom, pick one of the built-in tracks (Calm / Adventurous / Electronic) **or** click **Use My MP3…** to load an audio file from disk (MP3 / M4A / WAV / AAC — anything the system can decode).
+4. Hit **Preview** to confirm it sounds the way you want.
+5. Click **Add Audio & Done**.
+6. Click **Save As MP4 / MPEG-4** to export. The output now has a single audio track containing the music or MP3 you picked, with the 1-second fade-in / fade-out applied automatically.
+
+#### Replacing an existing audio track
+
+If the video you load **already has audio** (e.g. a screen recording you made with **Microphone** or **System Audio** enabled, or any third-party video file), it appears in the editor as a video lane **plus** an audio lane underneath. To swap that audio for something else:
+
+1. Open the video as above.
+2. In the timeline, find the audio lane underneath the video. Its header has a **🔊 speaker icon** (and a duration label).
+3. **Click the speaker icon.** It turns red and switches to 🔇 — the lane visibly dims and gains a red diagonal hatch. The original audio is now excluded from the export, but the data isn't lost; you can re-enable it any time by clicking the icon again.
+4. In the **Background Music** panel, pick a preset or load your MP3 (same as the silent-video flow above).
+5. Click **Apply Cuts + Audio & Done** (the button label adapts; the wording differs based on what you've changed).
+6. **Save As MP4 / MPEG-4** — the exported file contains only the new audio you chose. The original audio is gone from the export but still on disk in the source file.
+
+#### Using the audio of one loaded video as the soundtrack for another
+
+You can also borrow the audio track from one video file and use it as the soundtrack for a different video — e.g. take the narration from a screen recording and lay it over a silent demo clip.
+
+1. **Open the video you want to keep visible** via **Open Video to Edit…**. This becomes the *primary* asset at timeline offset 0.
+2. Click **Edit Video** to enter the editor.
+3. Click **+ Add Video** at the bottom of the timeline and pick the video file whose **audio** you want. It loads as a new asset (video + audio lanes) placed *after* the primary on the timeline.
+4. On the new asset's lanes:
+   - Click 👁 on its **video lane** to disable it — you don't want its picture in the output.
+   - Leave its audio lane enabled.
+5. On the *primary* asset:
+   - Click 🔊 on its **audio lane** (if it has one) to mute it.
+   - Leave its video lane enabled.
+6. **Align the new asset to start at the same moment as the primary.** **Cmd+drag** either of the new asset's lanes (video or audio — both share one offset, so they move together) to the left. The drag snaps to `0` when you get close, so a quick swipe is usually enough.
+7. Click **Apply … & Done**.
+8. **Save As MP4 / MPEG-4** — the output contains the primary's video frames with the second file's audio playing underneath. Original audio from either source isn't in the export (the disabled lanes stayed disabled), but the source files on disk are untouched.
+
+**Wrinkles to know about**
+- **Mismatched lengths.** The timeline runs as long as the latest-ending lane. If the audio source is *longer* than the primary's video, the output will be longer than the primary, with black frames for the trailing audio-only portion. To clip the output to the primary's length, drag a selection on the trailing portion of the new audio lane and click **Cut Selection** to remove it. If the audio source is *shorter*, the trailing portion of the video plays silent.
+- **Selecting only part of the borrowed audio.** Cuts in this editor remove a *selected* range (they don't keep one). To use only a middle section (say `0:10` – `0:30` of a `1:00` clip), make two cuts: one over `0:00–0:10` and another over `0:30–1:00`. Or use **Cut at Cursor** to split off the head and tail, then delete (×) the unwanted halves.
+- **Synchronization.** The audio you borrow plays from its own t=0 onward, aligned to wherever you positioned the asset on the timeline. There's no auto-sync to the primary's visuals — that's an editorial choice you control with the offset.
+- **No transcoding.** Audio borrowed from another video stays in its source format (typically AAC); the composer copies samples straight into the output rather than re-encoding, so quality is preserved.
+
+**Tips**
+- The new audio is auto-looped to match the (possibly trimmed) video length, so a 30-second music loop will repeat ~5× over a 2:30 video.
+- You can combine this with cuts on the video lane — trim out the bits you don't want, mute the old audio, lay down new music, all in one Apply.
+- **Drag-and-drop a folder of MP3s isn't supported** — pick one file at a time via **Use My MP3…**. If you need to chain multiple audio files, concatenate them first in another tool.
+- GIF export drops all audio (GIFs can't carry sound), so the "replace audio" flow only matters for MP4 / MPEG-4 outputs.
+
 ## Project Structure
 
 ```
