@@ -11,6 +11,9 @@ Package.resolved
 # Local release configuration (contains signing identity & team ID)
 Scripts/release.config.sh
 
+# Maintainer-only deployment notes
+app_store_deployment.md
+
 # Xcode (in case anyone opens the project in Xcode)
 *.xcodeproj/
 *.xcworkspace/
